@@ -1,11 +1,13 @@
+import time
+
 import requests
 from bs4 import BeautifulSoup
-from logger_config import logger
-import time
+
 from config import (
     URL_BASE_ANS, REQUEST_TIMEOUT, DELAY_ENTRE_REQUESTS,
-    ANEXOS_CONFIG,
-)
+    ANEXOS_CONFIG, )
+from downloader import baixar_arquivos
+from logger_config import logger
 
 
 def entrar_site():
@@ -94,13 +96,6 @@ def extrair_links(html_soup):
         raise Exception(f"Falha ao extrair os links dos anexos: {e}")
 
 
-def baixar_pdfs():
-    """
-    TODO: Implementar função para baixar os arquivos PDF encontrados.
-    """
-    pass
-
-
 def compactar_pdfs():
     """
     TODO: Implementar função para compactar os PDFs em um único arquivo ZIP.
@@ -111,7 +106,6 @@ def compactar_pdfs():
 # Execução principal
 if __name__ == "__main__":
     pagina_html = entrar_site()
-    print(extrair_links(pagina_html))
-
-    baixar_pdfs()
+    links = extrair_links(pagina_html)
+    baixar_arquivos(links)
     compactar_pdfs()

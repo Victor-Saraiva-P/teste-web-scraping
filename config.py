@@ -16,3 +16,10 @@ ANEXOS_CONFIG = {
 # Configurações de requisições
 DELAY_ENTRE_REQUESTS = 1
 REQUEST_TIMEOUT = 30
+
+# Configuração de download dos arquivos
+PASTA_DOWNLOADS = "downloads"
+
+# Se True, sobrescreve arquivos existentes
+SOBRERESCREVER_ARQUIVOS = False
+DOWNLOAD_PARALELO = True
