@@ -1,6 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
-import logging
+from logger_config import logger
 import time
 from config import (
     URL_BASE_ANS, REQUEST_TIMEOUT, DELAY_ENTRE_REQUESTS,
