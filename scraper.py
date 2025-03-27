@@ -49,13 +49,13 @@ def entrar_site():
 
     try:
         logger.info(f"Acessando o site da ANS: {URL_BASE_ANS}")
-        response = requests.get(URL_BASE_ANS, headers=headers, timeout=30)
+        response = requests.get(URL_BASE_ANS, headers=headers, timeout=REQUEST_TIMEOUT)
 
         # Verificar se a requisição foi bem-sucedida
         response.raise_for_status()
 
         # Pequeno delay para não sobrecarregar o servidor
-        time.sleep(1)
+        time.sleep(DELAY_ENTRE_REQUESTS)
 
         logger.info("Site acessado com sucesso (Status: %s)", response.status_code)
         soup = BeautifulSoup(response.text, 'lxml')
