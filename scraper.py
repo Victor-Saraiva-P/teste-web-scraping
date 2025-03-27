@@ -2,6 +2,10 @@ import requests
 from bs4 import BeautifulSoup
 import logging
 import time
+from config import (
+    URL_BASE_ANS, REQUEST_TIMEOUT, DELAY_ENTRE_REQUESTS,
+    ANEXOS_CONFIG,
+)
 
 # Configuração básica de logs
 logging.basicConfig(
