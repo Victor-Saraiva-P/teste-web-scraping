@@ -7,34 +7,6 @@ from config import (
     ANEXOS_CONFIG,
 )
 
-# Configuração básica de logs
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-# CONSTANTES
-# Url base
-URL_BASE_ANS = "https://www.gov.br/ans/pt-br/acesso-a-informacao/participacao-da-sociedade/atualizacao-do-rol-de-procedimentos"
-
-# Configurações para busca de anexos
-# pattern é o texto que deve ser encontrado no link minusculo
-# required_extension é a extensão do arquivo que deve ser baixado
-ANEXOS_CONFIG = {
-    "Anexo_I.pdf": {
-        "patterns": ["anexo i", "anexo_i"],
-        "required_extension": ".pdf"
-    },
-    "Anexo_II.pdf": {
-        "patterns": ["anexo ii", "anexo_ii"],
-        "required_extension": ".pdf"
-    }
-}
-
-DELAY_ENTRE_REQUESTS = 1
-REQUEST_TIMEOUT = 30
-
 
 def entrar_site():
     """
@@ -82,8 +54,6 @@ def extrair_links(html_soup):
     """
     logger.info("Iniciando extração dos links dos anexos")
     links_anexos = {}
-    links_processados = set()  # Conjunto para rastrear URLs já processadas
-
     try:
         todos_links = html_soup.find_all('a')
 
@@ -91,7 +61,7 @@ def extrair_links(html_soup):
             url = link.get('href')
             texto = link.get_text().lower().strip()
 
-            if not url or url in links_processados:
+            if not url or url in links_anexos:
                 continue
 
             # Iterar sobre a configuração de anexos
@@ -109,7 +79,6 @@ def extrair_links(html_soup):
                 for pattern in config["patterns"]:
                     if (pattern in texto) or (f"/{pattern}" in url.lower()) or (f"_{pattern}" in url.lower()):
                         links_anexos[nome_arquivo] = url
-                        links_processados.add(url)  # Marcar URL como processado
                         logger.info(f"Encontrado link do {nome_arquivo}: {url}")
                         break
 
