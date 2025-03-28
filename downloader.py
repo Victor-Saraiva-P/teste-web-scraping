@@ -4,16 +4,22 @@ import os
 import time
 from functools import partial
 from pathlib import Path
-
+import shutil
 import requests
 
-from config import PASTA_DOWNLOADS, SOBRERESCREVER_ARQUIVOS, DELAY_ENTRE_REQUESTS, REQUEST_TIMEOUT, DOWNLOAD_PARALELO
+from config import (
+    PASTA_DOWNLOADS, SOBRESCREVER_ARQUIVOS, DELAY_ENTRE_REQUESTS,
+    REQUEST_TIMEOUT, DOWNLOAD_PARALELO, PASTA_ARQUIVOS, LIMPAR_PASTA_DOWNLOADS, MAX_PARALELO, MAX_TENTATIVAS,
+    DELAY_ENTRE_TENTATIVAS
+)
 from logger_config import logger
 
 
-def baixar_arquivos(links_arquivos, pasta_destino=PASTA_DOWNLOADS):
+def baixar_arquivos(links_arquivos, pasta_destino=os.path.join(PASTA_DOWNLOADS, PASTA_ARQUIVOS)):
     """
     Função principal que baixa arquivos com base na configuração de paralelismo.
+    Se LIMPAR_PASTA_DOWNLOADS for True, apaga o conteúdo da pasta principal (PASTA_DOWNLOADS)
+    antes de iniciar o download.
 
     Args:
         links_arquivos (dict): Dicionário com nomes dos arquivos como chaves e URLs como valores.
@@ -24,8 +30,17 @@ def baixar_arquivos(links_arquivos, pasta_destino=PASTA_DOWNLOADS):
     """
     logger.info(f"Iniciando download de {len(links_arquivos)} arquivos")
 
-    # Criar diretório de destino se não existir
-    Path(pasta_destino).mkdir(exist_ok=True)
+    # Se LIMPAR_PASTA_DOWNLOADS estiver como True, apaga tudo na pasta principal (PASTA_DOWNLOADS)
+    main_path = Path(PASTA_DOWNLOADS)
+    if LIMPAR_PASTA_DOWNLOADS:
+        if main_path.exists():
+            logger.info(f"Limpando a pasta principal: {main_path}")
+            shutil.rmtree(main_path)
+        main_path.mkdir(parents=True, exist_ok=True)
+
+    # Cria o diretório de destino (por padrão, PASTA_DOWNLOADS/PASTA_ARQUIVOS)
+    destino = Path(pasta_destino)
+    destino.mkdir(parents=True, exist_ok=True)
 
     # Headers para simular navegador real
     headers = {
@@ -35,14 +50,12 @@ def baixar_arquivos(links_arquivos, pasta_destino=PASTA_DOWNLOADS):
     }
 
     try:
-        # Escolher entre download paralelo ou sequencial com base na configuração
         if DOWNLOAD_PARALELO:
-            arquivos_baixados = download_paralelo(links_arquivos, pasta_destino, headers)
+            arquivos_baixados = download_paralelo(links_arquivos, str(destino), headers)
         else:
-            # Download sequencial direto na função principal
             arquivos_baixados = []
             for nome_arquivo, url in links_arquivos.items():
-                caminho_arquivo = download_individual(nome_arquivo, url, pasta_destino, headers)
+                caminho_arquivo = download_individual(nome_arquivo, url, str(destino), headers)
                 if caminho_arquivo:
                     arquivos_baixados.append(caminho_arquivo)
                 time.sleep(DELAY_ENTRE_REQUESTS)
@@ -58,86 +71,62 @@ def baixar_arquivos(links_arquivos, pasta_destino=PASTA_DOWNLOADS):
 def download_individual(nome_arquivo, url, pasta_destino, headers):
     """
     Baixa um único arquivo a partir da URL.
-
-    Args:
-        nome_arquivo: Nome do arquivo a ser salvo
-        url: URL de download do arquivo
-        pasta_destino: Pasta onde o arquivo será salvo
-        headers: Cabeçalhos HTTP para a requisição
-
-    Returns:
-        str: Caminho do arquivo baixado ou None em caso de erro
     """
     caminho_arquivo = os.path.join(pasta_destino, nome_arquivo)
-
-    # Verificar se o arquivo já existe
-    if os.path.exists(caminho_arquivo) and not SOBRERESCREVER_ARQUIVOS:
+    if os.path.exists(caminho_arquivo) and not SOBRESCREVER_ARQUIVOS:
         logger.info(f"Arquivo {nome_arquivo} já existe. Pulando download.")
         return caminho_arquivo
 
-    try:
-        logger.info(f"Baixando {nome_arquivo} de {url}")
-        response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT, stream=True)
-        response.raise_for_status()
+    # Implementar sistema de tentativas
+    for tentativa in range(1, MAX_TENTATIVAS + 1):
+        try:
+            logger.info(f"Baixando {nome_arquivo} de {url} (tentativa {tentativa}/{MAX_TENTATIVAS})")
+            response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT, stream=True)
+            response.raise_for_status()
 
-        # Verificar o tipo de conteúdo e ajustar extensão se necessário
-        content_type = response.headers.get('Content-Type', '')
-        if '.' not in nome_arquivo:
-            extension = mimetypes.guess_extension(content_type.split(';')[0].strip())
-            if extension:
-                nome_arquivo = f"{nome_arquivo}{extension}"
-                caminho_arquivo = os.path.join(pasta_destino, nome_arquivo)
-                logger.info(f"Nome do arquivo atualizado para: {nome_arquivo}")
+            content_type = response.headers.get('Content-Type', '')
+            if '.' not in nome_arquivo:
+                extension = mimetypes.guess_extension(content_type.split(';')[0].strip())
+                if extension:
+                    nome_arquivo = f"{nome_arquivo}{extension}"
+                    caminho_arquivo = os.path.join(pasta_destino, nome_arquivo)
+                    logger.info(f"Nome do arquivo atualizado para: {nome_arquivo}")
+                    if os.path.exists(caminho_arquivo) and not SOBRESCREVER_ARQUIVOS:
+                        logger.info(f"Arquivo {nome_arquivo} já existe. Pulando download.")
+                        return caminho_arquivo
 
-                # Verificar novamente após alterar o nome
-                if os.path.exists(caminho_arquivo) and not SOBRERESCREVER_ARQUIVOS:
-                    logger.info(f"Arquivo {nome_arquivo} já existe. Pulando download.")
-                    return caminho_arquivo
+            with open(caminho_arquivo, 'wb') as arquivo:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        arquivo.write(chunk)
 
-        # Salvar o arquivo
-        with open(caminho_arquivo, 'wb') as arquivo:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    arquivo.write(chunk)
+            logger.info(f"Download concluído: {nome_arquivo}")
+            return caminho_arquivo
 
-        logger.info(f"Download concluído: {nome_arquivo}")
-        return caminho_arquivo
-
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Erro ao baixar {nome_arquivo}: {e}")
-        return None
-
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"Erro ao baixar {nome_arquivo} (tentativa {tentativa}/{MAX_TENTATIVAS}): {e}")
+            if tentativa < MAX_TENTATIVAS:
+                logger.info(f"Aguardando {DELAY_ENTRE_TENTATIVAS} segundos antes da próxima tentativa")
+                time.sleep(DELAY_ENTRE_TENTATIVAS)
+            else:
+                logger.error(f"Falha após {MAX_TENTATIVAS} tentativas para {nome_arquivo}")
+                return None
 
 def download_paralelo(links_arquivos, pasta_destino, headers):
     """
     Realiza o download em paralelo dos arquivos usando threads.
-
-    Args:
-        links_arquivos: Dicionário com nomes e URLs
-        pasta_destino: Pasta onde os arquivos serão salvos
-        headers: Cabeçalhos HTTP para a requisição
-
-    Returns:
-        list: Lista de caminhos dos arquivos baixados
     """
     arquivos_baixados = []
-
-    # Definir o número máximo de workers (threads)
-    max_workers = min(4, len(links_arquivos))
+    max_workers = min(MAX_PARALELO, len(links_arquivos))  # Usar configuração MAX_PARALELO
     logger.info(f"Iniciando downloads em paralelo com {max_workers} workers")
 
-    # Criar função parcial com argumentos fixos
     download_fn = partial(download_individual, pasta_destino=pasta_destino, headers=headers)
 
-    # Executar downloads em paralelo
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Criar um dicionário de futuras execuções
         future_to_arquivo = {
             executor.submit(download_fn, nome, url): nome
             for nome, url in links_arquivos.items()
         }
-
-        # Processar resultados à medida que são concluídos
         for future in concurrent.futures.as_completed(future_to_arquivo):
             nome_arquivo = future_to_arquivo[future]
             try:

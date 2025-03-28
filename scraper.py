@@ -1,18 +1,21 @@
+import sys
+
+from compressor import compactar_arquivos
 from downloader import baixar_arquivos
 from extractor import extrair_links
+from logger_config import logger
 from siteConnector import entrar_site
 
-
-def compactar_pdfs():
-    """
-    TODO: Implementar função para compactar os PDFs em um único arquivo ZIP.
-    """
-    pass
-
-
-# Execução principal
+# Em scraper.py - adicionar try/except na execução principal
 if __name__ == "__main__":
-    pagina_html = entrar_site()
-    links = extrair_links(pagina_html)
-    baixar_arquivos(links)
-    compactar_pdfs()
+    try:
+        pagina_html = entrar_site()
+        links = extrair_links(pagina_html)
+        arquivos_baixados = baixar_arquivos(links)
+        if arquivos_baixados:
+            compactar_arquivos()
+        else:
+            logger.error("Nenhum arquivo foi baixado. Compactação cancelada.")
+    except Exception as e:
+        logger.critical(f"Erro crítico na execução do script: {e}")
+        sys.exit(1)
