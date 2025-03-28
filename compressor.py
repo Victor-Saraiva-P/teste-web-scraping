@@ -6,16 +6,18 @@ from pathlib import Path
 
 import py7zr
 
-from config import PASTA_DOWNLOADS, PASTA_ARQUIVOS, FORMATO_COMPACTACAO, NOME_ARQUIVO_COMPACTADO, \
+from config import (
+    PASTA_DOWNLOADS, PASTA_ARQUIVOS, FORMATO_COMPACTACAO, NOME_ARQUIVO_COMPACTADO,
     SOBRESCREVER_COMPACTACAO
+)
 from logger_config import logger
 
+# Formatos de compactação suportados
 SUPPORTED_FORMATS = ["zip", "tar", "tar.gz", "tar.bz2", "rar", "7z"]
 
 
 def compactar_arquivos(
         pasta_origem=os.path.join(PASTA_DOWNLOADS, PASTA_ARQUIVOS),
-        extensoes=None,  # Ignorado: compacta todos os arquivos
         pasta_destino=PASTA_DOWNLOADS
 ):
     """
@@ -55,29 +57,28 @@ def compactar_arquivos(
             logger.error(f"Sem permissão de escrita na pasta de destino: {pasta_destino}")
             return None
 
-        # Define o nome do arquivo compactado e o caminho completo dele
+        # Define o nome do arquivo compactado e o caminho completo
         nome_arquivo = f"{NOME_ARQUIVO_COMPACTADO}.{FORMATO_COMPACTACAO}"
         caminho_completo = pasta_destino / nome_arquivo
 
-        # Se o arquivo já existir
-        # Se o arquivo já existir
+        # Se o arquivo já existir, verifica a flag de sobrescrita
         if caminho_completo.exists():
             if not SOBRESCREVER_COMPACTACAO:
                 logger.info(f"Arquivo {caminho_completo} já existe e não será sobrescrito.")
                 return str(caminho_completo)
             else:
-                caminho_completo.unlink()  # Remove o arquivo para sobrescrever:
-                caminho_completo.unlink()  # Remove o arquivo para sobrescrever
+                logger.info(f"Arquivo {caminho_completo} será sobrescrito.")
+                caminho_completo.unlink()
 
         logger.info(f"Iniciando compactação dos arquivos em formato {FORMATO_COMPACTACAO}")
 
-        # Obtém a lista de arquivos presentes em pasta_origem (sem filtrar por extensão)
+        # Obtém a lista de arquivos presentes em pasta_origem (todos, sem filtro)
         arquivos = []
         for root, _, files in os.walk(pasta_origem):
             root_path = Path(root)
             for file in files:
                 file_path = root_path / file
-                # Evita incluir o próprio arquivo compactado (caso esteja dentro de pasta_origem)
+                # Evita incluir o próprio arquivo compactado
                 if file_path == caminho_completo:
                     continue
                 arquivos.append(str(file_path))
@@ -86,7 +87,7 @@ def compactar_arquivos(
             logger.warning(f"Nenhum arquivo encontrado em {pasta_origem} para compactar.")
             return None
 
-        # Compacta conforme o formato escolhido
+        # Chama a função de compactação conforme o formato escolhido
         if FORMATO_COMPACTACAO == "zip":
             return _criar_zip(arquivos, str(caminho_completo), str(pasta_origem))
         elif FORMATO_COMPACTACAO in ["tar", "tar.gz", "tar.bz2"]:
@@ -136,9 +137,11 @@ def _criar_tar(arquivos, nome_arquivo, pasta_origem):
     else:
         logger.error(f"Formato TAR não suportado: {FORMATO_COMPACTACAO}")
         return None
+
     try:
         nome_arquivo_path = Path(nome_arquivo)
         pasta_origem_path = Path(pasta_origem)
+        # Ajusta a extensão se necessário
         if FORMATO_COMPACTACAO == "tar.gz" and not nome_arquivo_path.suffix == ".gz":
             nome_arquivo_path = nome_arquivo_path.with_suffix(".tar.gz")
         elif FORMATO_COMPACTACAO == "tar.bz2" and not nome_arquivo_path.suffix == ".bz2":
