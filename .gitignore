@@ -1,3 +1,4 @@
 # Pasta de configurações da IDE
 .idea/
 /downloads
+/__pycache__
