@@ -54,5 +54,5 @@ DOWNLOAD_PARALELO = True         # Se True, realiza downloads em paralelo
 # =============================================================================
 
 SOBRESCREVER_COMPACTACAO = True  # Se True, sobrescreve arquivo compactado existente
-FORMATO_COMPACTACAO = "zip"      # Formato de compactação: opções suportadas ("zip", "tar", "tar.gz", "tar.bz2", "rar", "7z")
+FORMATO_COMPACTACAO = "zip"      # Formato de compactação: opções suportadas ("zip", "tar", "tar.gz", "tar.bz2", "7z")
 NOME_ARQUIVO_COMPACTADO = "anexos"  # Nome base para o arquivo compactado

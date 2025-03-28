@@ -1,19 +1,16 @@
 import os
-import subprocess
 import tarfile
 import zipfile
 from pathlib import Path
 
 import py7zr
 
-from config import (
-    PASTA_DOWNLOADS, PASTA_ARQUIVOS, FORMATO_COMPACTACAO, NOME_ARQUIVO_COMPACTADO,
+from config import PASTA_DOWNLOADS, PASTA_ARQUIVOS, FORMATO_COMPACTACAO, NOME_ARQUIVO_COMPACTADO, \
     SOBRESCREVER_COMPACTACAO
-)
 from logger_config import logger
 
-# Formatos de compactação suportados
-SUPPORTED_FORMATS = ["zip", "tar", "tar.gz", "tar.bz2", "rar", "7z"]
+# Formatos de compactação suportados (RAR removido)
+SUPPORTED_FORMATS = ["zip", "tar", "tar.gz", "tar.bz2", "7z"]
 
 
 def compactar_arquivos(
@@ -27,7 +24,6 @@ def compactar_arquivos(
     Args:
         pasta_origem (str): Pasta que contém os arquivos a serem compactados.
                               Por padrão: os.path.join(PASTA_DOWNLOADS, PASTA_ARQUIVOS)
-        extensoes (list): Não utilizado, pois compacta todos os arquivos.
         pasta_destino (str): Pasta onde o arquivo compactado será salvo. Por padrão: PASTA_DOWNLOADS.
 
     Returns:
@@ -57,7 +53,7 @@ def compactar_arquivos(
             logger.error(f"Sem permissão de escrita na pasta de destino: {pasta_destino}")
             return None
 
-        # Define o nome do arquivo compactado e o caminho completo
+        # Define o nome do arquivo compactado e o caminho completo dele
         nome_arquivo = f"{NOME_ARQUIVO_COMPACTADO}.{FORMATO_COMPACTACAO}"
         caminho_completo = pasta_destino / nome_arquivo
 
@@ -87,13 +83,11 @@ def compactar_arquivos(
             logger.warning(f"Nenhum arquivo encontrado em {pasta_origem} para compactar.")
             return None
 
-        # Chama a função de compactação conforme o formato escolhido
+        # Compacta conforme o formato escolhido
         if FORMATO_COMPACTACAO == "zip":
             return _criar_zip(arquivos, str(caminho_completo), str(pasta_origem))
         elif FORMATO_COMPACTACAO in ["tar", "tar.gz", "tar.bz2"]:
             return _criar_tar(arquivos, str(caminho_completo), str(pasta_origem))
-        elif FORMATO_COMPACTACAO == "rar":
-            return _criar_rar(arquivos, str(caminho_completo), str(pasta_origem))
         elif FORMATO_COMPACTACAO == "7z":
             return _criar_7z(arquivos, str(caminho_completo), str(pasta_origem))
         else:
@@ -158,25 +152,6 @@ def _criar_tar(arquivos, nome_arquivo, pasta_origem):
         return str(nome_arquivo_path)
     except Exception as e:
         logger.error(f"Erro ao criar arquivo TAR: {e}", exc_info=True)
-        return None
-
-
-def _criar_rar(arquivos, nome_arquivo, pasta_origem):
-    """
-    Cria arquivo RAR usando o comando de linha de comando 'rar'.
-    É necessário que o executável 'rar' esteja disponível no PATH.
-    """
-    try:
-        nome_arquivo_path = Path(nome_arquivo)
-        pasta_origem_path = Path(pasta_origem).resolve()
-        arquivos_absolutos = [str(Path(arquivo).resolve()) for arquivo in arquivos]
-        cmd = ["rar", "a", "-ep1", str(nome_arquivo_path)] + arquivos_absolutos
-        logger.info(f"Executando comando: {' '.join(cmd)}")
-        subprocess.run(cmd, check=True, cwd=str(pasta_origem_path))
-        logger.info(f"Arquivo RAR criado com sucesso: {nome_arquivo_path}")
-        return str(nome_arquivo_path)
-    except Exception as e:
-        logger.error(f"Erro ao criar arquivo RAR: {e}", exc_info=True)
         return None
 
 
